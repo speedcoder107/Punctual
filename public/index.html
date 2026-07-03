@@ -2,43 +2,79 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/logo.svg" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" sizes="any" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#FAF8F5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#141210" media="(prefers-color-scheme: dark)" />
     <meta
       name="description"
-      content="Web site created using create-react-app"
+      content="Punctual — a warm, fast task manager. Plan your day, hit your deadlines, stay punctual."
     />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo.svg" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Punctual" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
 
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
-    <title>React App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
+    />
+
+    <title>Punctual</title>
+
+    <style>
+      /* Paint the correct background before any JS runs so an installed PWA
+         never flashes white on a cold, dark-mode launch. `punctual-splash-theme`
+         is written by the app whenever the resolved theme changes, so repeat
+         launches match the user's *explicit* choice; first-ever launch falls
+         back to the OS preference via the media query below. */
+      :root { --splash-bg: #faf8f5; --splash-fg: #2a2622; --splash-sub: #9c9589; }
+      @media (prefers-color-scheme: dark) {
+        :root { --splash-bg: #141210; --splash-fg: #f0ede7; --splash-sub: #807a72; }
+      }
+      html, body { margin: 0; background: var(--splash-bg); }
+      #splash {
+        position: fixed; inset: 0; z-index: 9999;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 20px; background: var(--splash-bg);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+      #splash .mark { width: 76px; height: 76px; border-radius: 20px; box-shadow: 0 12px 30px rgba(0,0,0,0.14); }
+      #splash .word { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 28px; color: var(--splash-fg); letter-spacing: -0.01em; }
+      #splash .dots { display: flex; gap: 6px; margin-top: 2px; }
+      #splash .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--splash-sub); opacity: 0.35; animation: splashPulse 1s ease-in-out infinite; }
+      #splash .dots i:nth-child(2) { animation-delay: 0.15s; }
+      #splash .dots i:nth-child(3) { animation-delay: 0.3s; }
+      @keyframes splashPulse { 0%, 100% { opacity: 0.25; transform: scale(0.85); } 50% { opacity: 0.9; transform: scale(1); } }
+    </style>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('punctual-splash-theme');
+          if (t === 'dark' || t === 'light') {
+            var r = document.documentElement.style;
+            if (t === 'dark') { r.setProperty('--splash-bg', '#141210'); r.setProperty('--splash-fg', '#f0ede7'); r.setProperty('--splash-sub', '#807a72'); }
+            else { r.setProperty('--splash-bg', '#faf8f5'); r.setProperty('--splash-fg', '#2a2622'); r.setProperty('--splash-sub', '#9c9589'); }
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
+    <noscript>You need to enable JavaScript to run Punctual.</noscript>
+    <div id="root">
+      <div id="splash">
+        <svg class="mark" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect width="512" height="512" rx="120" fill="#D6492F" />
+          <circle cx="256" cy="256" r="150" fill="none" stroke="#ffffff" stroke-width="30" opacity="0.32" />
+          <path d="M182 260 l52 52 l108 -132" fill="none" stroke="#ffffff" stroke-width="42" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <div class="word">Punctual</div>
+        <div class="dots"><i></i><i></i><i></i></div>
+      </div>
+    </div>
   </body>
 </html>

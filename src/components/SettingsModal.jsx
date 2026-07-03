@@ -39,14 +39,14 @@ export default function SettingsModal({ onClose, user }) {
 
   return (
     <Modal onClose={onClose} maxWidth={720}>
-      <div className="flex" style={{ height: '70vh' }}>
-        <div className="w-44 flex-shrink-0 border-r py-3" style={{ borderColor: theme.border, backgroundColor: theme.bg }}>
-          <h2 className="text-sm font-semibold px-4 pb-2" style={{ color: theme.text }}>Settings</h2>
+      <div className="flex flex-col md:flex-row" style={{ height: '85vh', maxHeight: '85vh' }}>
+        <div className="w-full md:w-44 flex-shrink-0 border-b md:border-b-0 md:border-r py-2 md:py-3 flex md:flex-col overflow-x-auto md:overflow-visible no-sb" style={{ borderColor: theme.border, backgroundColor: theme.bg }}>
+          <h2 className="hidden md:block text-sm font-semibold px-4 pb-2" style={{ color: theme.text }}>Settings</h2>
           {tabs.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-left" style={{ backgroundColor: tab === t.id ? theme.accentLight : 'transparent', color: tab === t.id ? theme.accent : theme.text }}>{t.icon}{t.label}</button>
+            <button key={t.id} onClick={() => setTab(t.id)} className="flex-shrink-0 md:w-full flex items-center gap-2 px-3.5 md:px-4 py-2 text-sm text-left whitespace-nowrap" style={{ backgroundColor: tab === t.id ? theme.accentLight : 'transparent', color: tab === t.id ? theme.accent : theme.text }}>{t.icon}{t.label}</button>
           ))}
         </div>
-        <div className="flex-1 overflow-y-auto p-6" style={{ backgroundColor: theme.bgAlt }}>
+        <div className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6" style={{ backgroundColor: theme.bgAlt }}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold" style={{ color: theme.text, fontFamily: 'Fraunces, serif' }}>{tabs.find((t) => t.id === tab).label}</h3>
             <button onClick={onClose} style={{ color: theme.textLight }}><X size={20} /></button>

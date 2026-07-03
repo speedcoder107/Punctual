@@ -80,25 +80,27 @@ function MonthGrid({ anchor, weekStart, onPickDay }) {
   const tasksOn = (ds) => state.tasks.filter((t) => !t.parentId && !t.completed && t.dueDate === ds);
 
   return (
-    <div className="grid grid-cols-7 gap-px rounded-lg overflow-hidden" style={{ backgroundColor: theme.border }}>
-      {wd.map((w) => <div key={w} className="text-center text-xs font-semibold py-1.5" style={{ color: theme.textLight, backgroundColor: theme.bgAlt }}>{w}</div>)}
-      {cells.map((ds, i) => {
-        return (
-          <div key={i} onClick={() => ds && onPickDay(ds)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { const id = e.dataTransfer.getData('text/task'); if (id && ds) dispatch({ type: 'UPDATE_TASK', id, patch: { dueDate: ds } }); }}
-            className="p-1.5 align-top cursor-pointer" style={{ minHeight: 88, backgroundColor: theme.bgAlt }}>
-            {ds && <div className="text-xs mb-1 flex items-center justify-center rounded-full" style={{ width: 20, height: 20, color: ds === today ? theme.accentText : theme.textMuted, backgroundColor: ds === today ? theme.accent : 'transparent', fontWeight: ds === today ? 700 : 400 }}>{parseDate(ds).getDate()}</div>}
-            <div className="space-y-1">
-              {ds && tasksOn(ds).slice(0, 3).map((t) => (
-                <div key={t.id} draggable onDragStart={(e) => e.dataTransfer.setData('text/task', t.id)} onClick={(e) => e.stopPropagation()}
-                  className="text-xs px-1.5 py-1 rounded cursor-grab truncate" style={{ backgroundColor: theme.surface, color: theme.text, borderLeft: `2px solid ${theme.accent}` }}>{t.content}</div>
-              ))}
-              {ds && tasksOn(ds).length > 3 && <div className="text-xs" style={{ color: theme.textLighter }}>+{tasksOn(ds).length - 3} more</div>}
+    <div className="overflow-x-auto no-sb">
+      <div className="grid grid-cols-7 gap-px rounded-lg overflow-hidden" style={{ backgroundColor: theme.border, minWidth: 560 }}>
+        {wd.map((w) => <div key={w} className="text-center text-xs font-semibold py-1.5" style={{ color: theme.textLight, backgroundColor: theme.bgAlt }}>{w}</div>)}
+        {cells.map((ds, i) => {
+          return (
+            <div key={i} onClick={() => ds && onPickDay(ds)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { const id = e.dataTransfer.getData('text/task'); if (id && ds) dispatch({ type: 'UPDATE_TASK', id, patch: { dueDate: ds } }); }}
+              className="p-1.5 align-top cursor-pointer" style={{ minHeight: 88, backgroundColor: theme.bgAlt }}>
+              {ds && <div className="text-xs mb-1 flex items-center justify-center rounded-full" style={{ width: 20, height: 20, color: ds === today ? theme.accentText : theme.textMuted, backgroundColor: ds === today ? theme.accent : 'transparent', fontWeight: ds === today ? 700 : 400 }}>{parseDate(ds).getDate()}</div>}
+              <div className="space-y-1">
+                {ds && tasksOn(ds).slice(0, 3).map((t) => (
+                  <div key={t.id} draggable onDragStart={(e) => e.dataTransfer.setData('text/task', t.id)} onClick={(e) => e.stopPropagation()}
+                    className="text-xs px-1.5 py-1 rounded cursor-grab truncate" style={{ backgroundColor: theme.surface, color: theme.text, borderLeft: `2px solid ${theme.accent}` }}>{t.content}</div>
+                ))}
+                {ds && tasksOn(ds).length > 3 && <div className="text-xs" style={{ color: theme.textLighter }}>+{tasksOn(ds).length - 3} more</div>}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

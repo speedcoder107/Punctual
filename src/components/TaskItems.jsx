@@ -68,22 +68,27 @@ export function TaskRow({ task, depth = 0, showProject = true, onOpen, onToggle,
 
   return (
     <div className="group/row">
-      <div className="flex items-start gap-2.5 py-2 border-b transition-colors hover:bg-opacity-40"
+      <div className="flex items-start gap-2.5 sm:gap-2.5 py-3 sm:py-2.5 border-b transition-colors hover:bg-opacity-40"
         style={{ borderColor: theme.border, paddingLeft: visualDepth * 26, borderLeft: cappedFurther ? `2px solid ${theme.borderAlt}` : 'none' }}>
-        {dragHandle && <span {...dragHandle} className="opacity-0 group-hover/row:opacity-100 cursor-grab mt-1 flex-shrink-0" style={{ color: theme.textLighter, touchAction: 'none' }}><GripVertical size={14} /></span>}
+        {dragHandle && <span {...dragHandle} className="hidden md:block opacity-0 group-hover/row:opacity-100 cursor-grab mt-1 flex-shrink-0" style={{ color: theme.textLighter, touchAction: 'none' }}><GripVertical size={14} /></span>}
         {!task.isHeader && <TaskCheckbox task={task} onToggle={(e) => onToggle(task, e)} />}
         <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onOpen(task)}>
-          <p className="leading-snug flex items-center gap-1.5" style={{ fontSize: task.isHeader ? 13 : 14, fontWeight: task.isHeader ? 700 : 400, textTransform: task.isHeader ? 'uppercase' : 'none', letterSpacing: task.isHeader ? '.03em' : 'normal', color: task.completed ? theme.textLight : theme.text, textDecoration: task.completed ? 'line-through' : 'none' }}>
+          <p className="leading-snug flex items-center gap-1.5" style={{ fontSize: task.isHeader ? 13 : 15, fontWeight: task.isHeader ? 700 : 400, textTransform: task.isHeader ? 'uppercase' : 'none', letterSpacing: task.isHeader ? '.03em' : 'normal', color: task.completed ? theme.textLight : theme.text, textDecoration: task.completed ? 'line-through' : 'none' }}>
             {task.isHeader && <Layers size={12} style={{ color: theme.textLight, flexShrink: 0 }} />}{task.content}
           </p>
           {task.description && <p className="text-xs mt-0.5 line-clamp-1" style={{ color: theme.textLight }}>{task.description}</p>}
           <TaskMeta task={task} project={project} showProject={showProject} />
         </div>
-        <div className="opacity-0 group-hover/row:opacity-100 transition-opacity flex items-center gap-0.5 flex-shrink-0">
-          {onFocus && !task.completed && !task.isHeader && <IconBtn title="Focus" onClick={(e) => { e.stopPropagation(); onFocus(task); }}><Play size={14} /></IconBtn>}
-          {onAddSubtask && <IconBtn title="Add sub-task" onClick={(e) => { e.stopPropagation(); setExpanded(true); onAddSubtask(task); }}><Plus size={14} /></IconBtn>}
-          <div className="relative">
-            <IconBtn title="More" onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}><MoreHorizontal size={14} /></IconBtn>
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          {/* Focus & add-subtask are desktop hover affordances; on mobile these
+              same actions live in the task's detail panel (tap the row). */}
+          <div className="hidden md:flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+            {onFocus && !task.completed && !task.isHeader && <IconBtn title="Focus" onClick={(e) => { e.stopPropagation(); onFocus(task); }}><Play size={14} /></IconBtn>}
+            {onAddSubtask && <IconBtn title="Add sub-task" onClick={(e) => { e.stopPropagation(); setExpanded(true); onAddSubtask(task); }}><Plus size={14} /></IconBtn>}
+          </div>
+          {/* "⋯" stays reachable on touch (no hover): visible on mobile, hover-gated on desktop */}
+          <div className="relative md:opacity-0 md:group-hover/row:opacity-100 transition-opacity">
+            <IconBtn title="More" onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}><MoreHorizontal size={16} /></IconBtn>
             {menuOpen && (
               <Panel width={190}>
                 <button onClick={(e) => { e.stopPropagation(); dispatch({ type: 'UPDATE_TASK', id: task.id, patch: { isHeader: !task.isHeader } }); setMenuOpen(false); }}

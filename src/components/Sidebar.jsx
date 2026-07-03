@@ -10,8 +10,11 @@ import { levelFor } from '../lib/karma';
 import { ColorPicker, PROJECT_COLORS } from './shared';
 import FilterBuilder from './FilterBuilder';
 
-export default function Sidebar({ collapsed, setCollapsed, activeView, setView, counts, onOpenSettings, onQuickAdd }) {
+export default function Sidebar({ collapsed: collapsedProp, setCollapsed, activeView, setView, counts, onOpenSettings, onQuickAdd, mobileOpen, onMobileClose }) {
   const theme = useTheme();
+  // The mobile drawer always shows the full nav — the desktop icon-rail
+  // "collapsed" preference doesn't apply once it's an overlay.
+  const collapsed = mobileOpen ? false : collapsedProp;
   const { state, dispatch } = useStore();
   const requestDelete = useRequestDelete();
   const [showAddProject, setShowAddProject] = useState(false);
@@ -30,6 +33,9 @@ export default function Sidebar({ collapsed, setCollapsed, activeView, setView, 
     ...state.filters.filter((f) => f.isFavorite).map((f) => ({ ...f, _kind: 'filter' })),
   ];
   const karma = levelFor(state.productivity.karma || 0);
+  // On mobile the sidebar renders as an overlay drawer; any navigation should
+  // close it automatically so the user lands on the content, not behind it.
+  const goto = (v) => { setView(v); if (window.innerWidth < 768) onMobileClose?.(); };
 
   function addProject() {
     if (!newName.trim()) return;
@@ -40,7 +46,7 @@ export default function Sidebar({ collapsed, setCollapsed, activeView, setView, 
   const NavItem = ({ icon, label, view, count, badge }) => {
     const active = activeView === view;
     return (
-      <button onClick={() => setView(view)} title={collapsed ? label : undefined} className="w-full flex items-center rounded-lg text-sm transition-colors"
+      <button onClick={() => goto(view)} title={collapsed ? label : undefined} className="w-full flex items-center rounded-lg text-sm transition-colors"
         style={{ padding: '7px 8px', justifyContent: collapsed ? 'center' : 'space-between', backgroundColor: active ? theme.accentLight : 'transparent', color: active ? theme.accent : theme.text }}
         onMouseEnter={(e) => { if (!active) e.currentTarget.style.backgroundColor = theme.hover; }}
         onMouseLeave={(e) => { if (!active) e.currentTarget.style.backgroundColor = 'transparent'; }}>
@@ -66,7 +72,7 @@ export default function Sidebar({ collapsed, setCollapsed, activeView, setView, 
     const [open, setOpen] = useState(true);
     return (
       <>
-        <div onClick={() => setView(`project:${p.id}`)} className="group/pr flex items-center justify-between rounded-lg cursor-pointer transition-colors"
+        <div onClick={() => goto(`project:${p.id}`)} className="group/pr flex items-center justify-between rounded-lg cursor-pointer transition-colors"
           style={{ padding: '6px 8px', paddingLeft: 8 + depth * 14, backgroundColor: active ? theme.accentLight : 'transparent' }}
           onMouseEnter={(e) => { if (!active) e.currentTarget.style.backgroundColor = theme.hover; }}
           onMouseLeave={(e) => { if (!active) e.currentTarget.style.backgroundColor = 'transparent'; }}>
@@ -89,10 +95,13 @@ export default function Sidebar({ collapsed, setCollapsed, activeView, setView, 
   const inputStyle = { borderColor: theme.border, backgroundColor: theme.surface, color: theme.text };
 
   return (
-    <aside className="flex-shrink-0 h-full flex flex-col border-r" style={{ width: collapsed ? 60 : 264, borderColor: theme.border, backgroundColor: theme.bgAlt, transition: 'width .18s ease' }}>
+    <>
+      {mobileOpen && <div className="fixed inset-0 z-30 md:hidden" style={{ backgroundColor: theme.overlay }} onClick={onMobileClose} />}
+      <aside className={`h-full flex flex-col border-r flex-shrink-0 ${mobileOpen ? 'fixed inset-y-0 left-0 z-40 shadow-2xl' : 'hidden md:flex'}`} style={{ width: collapsed ? 60 : 264, borderColor: theme.border, backgroundColor: theme.bgAlt, transition: 'width .18s ease' }}>
       <div className="flex items-center justify-between pt-4 pb-2" style={{ paddingLeft: collapsed ? 0 : 16, paddingRight: 8 }}>
         {!collapsed && <h1 style={{ fontFamily: 'Fraunces,serif', fontWeight: 600, fontSize: 21, color: theme.text }}>Punctual</h1>}
-        <button onClick={() => setCollapsed((c) => !c)} className="p-1.5 rounded-lg" style={{ margin: collapsed ? '0 auto' : 0, color: theme.textMuted }}>{collapsed ? <Menu size={18} /> : <ChevronsLeft size={18} />}</button>
+        <button onClick={() => setCollapsed((c) => !c)} className="p-1.5 rounded-lg hidden md:inline-flex" style={{ margin: collapsed ? '0 auto' : 0, color: theme.textMuted }}>{collapsed ? <Menu size={18} /> : <ChevronsLeft size={18} />}</button>
+        <button onClick={onMobileClose} className="p-1.5 rounded-lg md:hidden" style={{ color: theme.textMuted }} aria-label="Close menu"><ChevronsLeft size={18} /></button>
       </div>
 
       <div className="px-2.5 flex flex-col gap-0.5">
@@ -116,7 +125,7 @@ export default function Sidebar({ collapsed, setCollapsed, activeView, setView, 
             <div className="px-2.5">
               <SectionHeader id="favorites" label="Favorites" />
               {openSections.favorites && favorites.map((f) => (
-                <button key={`${f._kind}-${f.id}`} onClick={() => setView(f._kind === 'project' ? `project:${f.id}` : f._kind === 'label' ? `label:${f.id}` : `filter:${f.id}`)} className="w-full flex items-center gap-2 rounded-lg text-sm" style={{ padding: '6px 8px', color: theme.text }}>
+                <button key={`${f._kind}-${f.id}`} onClick={() => goto(f._kind === 'project' ? `project:${f.id}` : f._kind === 'label' ? `label:${f.id}` : `filter:${f.id}`)} className="w-full flex items-center gap-2 rounded-lg text-sm" style={{ padding: '6px 8px', color: theme.text }}>
                   {f._kind === 'project' ? <span className="rounded-full" style={{ width: 9, height: 9, backgroundColor: f.color }} /> : f._kind === 'label' ? <Tag size={13} style={{ color: f.color }} /> : <Filter size={13} style={{ color: f.color }} />}
                   <span className="truncate">{f.name}</span>
                 </button>
@@ -147,7 +156,7 @@ export default function Sidebar({ collapsed, setCollapsed, activeView, setView, 
             {openSections.labels && state.labels.map((l) => {
               const active = activeView === `label:${l.id}`;
               return (
-                <div key={l.id} onClick={() => setView(`label:${l.id}`)} className="group/lb flex items-center justify-between rounded-lg cursor-pointer" style={{ padding: '6px 8px', backgroundColor: active ? theme.accentLight : 'transparent' }}>
+                <div key={l.id} onClick={() => goto(`label:${l.id}`)} className="group/lb flex items-center justify-between rounded-lg cursor-pointer" style={{ padding: '6px 8px', backgroundColor: active ? theme.accentLight : 'transparent' }}>
                   <span className="flex items-center gap-2 text-sm min-w-0"><Tag size={13} style={{ color: l.color }} /><span className="truncate" style={{ color: active ? theme.accent : theme.text }}>{l.name}</span></span>
                   <span className="flex items-center gap-1"><span className="text-xs group-hover/lb:hidden" style={{ color: theme.textLight }}>{counts.byLabel[l.name] || ''}</span>
                     <button onClick={(e) => { e.stopPropagation(); dispatch({ type: 'UPDATE_LABEL', id: l.id, patch: { isFavorite: !l.isFavorite } }); }} className="hidden group-hover/lb:block p-0.5" style={{ color: l.isFavorite ? theme.accent : theme.textLight }}><Star size={12} fill={l.isFavorite ? theme.accent : 'none'} /></button>
@@ -174,7 +183,7 @@ export default function Sidebar({ collapsed, setCollapsed, activeView, setView, 
             {openSections.filters && state.filters.map((f) => {
               const active = activeView === `filter:${f.id}`;
               return (
-                <div key={f.id} onClick={() => setView(`filter:${f.id}`)} className="group/ft flex items-center justify-between rounded-lg cursor-pointer" style={{ padding: '6px 8px', backgroundColor: active ? theme.accentLight : 'transparent' }}>
+                <div key={f.id} onClick={() => goto(`filter:${f.id}`)} className="group/ft flex items-center justify-between rounded-lg cursor-pointer" style={{ padding: '6px 8px', backgroundColor: active ? theme.accentLight : 'transparent' }}>
                   <span className="flex items-center gap-2 text-sm min-w-0"><Filter size={13} style={{ color: f.color }} /><span className="truncate" style={{ color: active ? theme.accent : theme.text }}>{f.name}</span></span>
                   <span className="flex items-center gap-1">
                     <button onClick={(e) => { e.stopPropagation(); dispatch({ type: 'UPDATE_FILTER', id: f.id, patch: { isFavorite: !f.isFavorite } }); }} className="hidden group-hover/ft:block p-0.5" style={{ color: f.isFavorite ? theme.accent : theme.textLight }}><Star size={12} fill={f.isFavorite ? theme.accent : 'none'} /></button>
@@ -188,14 +197,15 @@ export default function Sidebar({ collapsed, setCollapsed, activeView, setView, 
 
       {/* footer */}
       <div className="border-t px-2.5 py-2.5 flex items-center justify-between gap-2" style={{ borderColor: theme.border }}>
-        <button onClick={onOpenSettings} className="flex items-center gap-2 rounded-lg text-sm" style={{ padding: '6px 8px', color: theme.textMuted }} title="Settings">
+        <button onClick={() => { onOpenSettings(); if (window.innerWidth < 768) onMobileClose?.(); }} className="flex items-center gap-2 rounded-lg text-sm" style={{ padding: '6px 8px', color: theme.textMuted }} title="Settings">
           <Settings size={17} />{!collapsed && 'Settings'}
         </button>
         {!collapsed && (
-          <button onClick={() => setView('productivity')} className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full" style={{ backgroundColor: theme.accentLight, color: theme.accent }} title={`${state.productivity.karma} karma · ${karma.level.name}`}>
+          <button onClick={() => goto('productivity')} className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full" style={{ backgroundColor: theme.accentLight, color: theme.accent }} title={`${state.productivity.karma} karma · ${karma.level.name}`}>
             <TrendingUp size={13} />{state.productivity.karma}
           </button>)}
       </div>
     </aside>
+    </>
   );
 }

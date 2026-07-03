@@ -37,6 +37,8 @@ export default function CalendarGrid({ days, filterFn, handlers, onDropTask, onC
   const untimed = days.map((d) => allTasks.filter((t) => t.dueDate === d && !t.dueTime));
   const timed = days.map((d) => allTasks.filter((t) => t.dueDate === d && t.dueTime));
 
+  // Pointer Events (not Mouse Events) so drag-to-create/reschedule works with
+  // touch on phones/tablets too, not just a mouse.
   const onMove = useCallback((e) => {
     if (!dragState) return;
     const col = document.querySelector(`[data-daycol="${dragState.dayIndex}"]`);
@@ -60,9 +62,9 @@ export default function CalendarGrid({ days, filterFn, handlers, onDropTask, onC
 
   useEffect(() => {
     if (!dragState) return;
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
   }, [dragState, onMove, onUp]);
 
   /* ── click-and-drag to create ──
@@ -76,6 +78,10 @@ export default function CalendarGrid({ days, filterFn, handlers, onDropTask, onC
   const onCreateMove = useCallback((e) => {
     const cs = createRef.current;
     if (!cs) return;
+    // Stop the page/grid from scrolling while actively dragging out a new block
+    // on touch (best-effort — the math below re-reads scrollTop each move, so it
+    // self-corrects even if a little scroll slips through).
+    if (e.cancelable) e.preventDefault();
     const col = document.querySelector(`[data-daycol="${cs.dayIndex}"]`);
     if (!col) return;
     const rect = col.getBoundingClientRect();
@@ -101,25 +107,70 @@ export default function CalendarGrid({ days, filterFn, handlers, onDropTask, onC
   const isCreating = !!createState;
   useEffect(() => {
     if (!isCreating) return;
-    window.addEventListener('mousemove', onCreateMove);
-    window.addEventListener('mouseup', onCreateUp);
-    return () => { window.removeEventListener('mousemove', onCreateMove); window.removeEventListener('mouseup', onCreateUp); };
+    window.addEventListener('pointermove', onCreateMove, { passive: false });
+    window.addEventListener('pointerup', onCreateUp);
+    return () => { window.removeEventListener('pointermove', onCreateMove); window.removeEventListener('pointerup', onCreateUp); };
   }, [isCreating, onCreateMove, onCreateUp]);
 
-  function startCreate(e, dayIndex) {
-    if (!onCreateAt) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const y = e.clientY - rect.top + e.currentTarget.scrollTop;
+  // ── long-press to begin creation on touch ──
+  // A quick tap or a swipe/scroll must NOT create a task on a phone; only a
+  // deliberate press-and-hold does (then dragging sets the duration). Mouse
+  // users keep the immediate click-and-drag. `longPressRef` tracks the pending
+  // hold so movement or an early lift can cancel it.
+  const longPressRef = useRef(null);
+
+  const beginCreate = useCallback((dayIndex, y) => {
     const mins = minutesFromTop(y);
     const next = { dayIndex, startMin: mins, endMin: mins + 15, moved: false };
     createRef.current = next;
     setCreateState(next);
+  }, []);
+
+  const cancelLongPress = useCallback(() => {
+    const lp = longPressRef.current;
+    if (!lp) return;
+    clearTimeout(lp.timer);
+    window.removeEventListener('pointermove', lp.onPreMove);
+    window.removeEventListener('pointerup', lp.onPreEnd);
+    window.removeEventListener('pointercancel', lp.onPreEnd);
+    longPressRef.current = null;
+  }, []);
+
+  function startCreate(e, dayIndex) {
+    if (!onCreateAt) return;
+    const col = e.currentTarget;
+    const rect = col.getBoundingClientRect();
+    const y = e.clientY - rect.top + col.scrollTop;
+
+    if (e.pointerType === 'mouse') { beginCreate(dayIndex, y); return; }
+
+    // touch / pen: require a ~420ms hold that stays roughly in place
+    const startX = e.clientX, startY = e.clientY;
+    const onPreMove = (ev) => {
+      if (Math.abs(ev.clientX - startX) > 10 || Math.abs(ev.clientY - startY) > 10) cancelLongPress();
+    };
+    const onPreEnd = () => cancelLongPress();
+    const timer = setTimeout(() => {
+      const lp = longPressRef.current;
+      cancelLongPress();
+      if (!lp) return;
+      const freshRect = col.getBoundingClientRect();
+      beginCreate(dayIndex, lp.startY - freshRect.top + col.scrollTop);
+      try { navigator.vibrate && navigator.vibrate(15); } catch { /* */ }
+    }, 420);
+    longPressRef.current = { timer, onPreMove, onPreEnd, startY };
+    window.addEventListener('pointermove', onPreMove, { passive: true });
+    window.addEventListener('pointerup', onPreEnd);
+    window.addEventListener('pointercancel', onPreEnd);
   }
+
+  useEffect(() => () => cancelLongPress(), [cancelLongPress]);
 
   const today = todayStr();
 
   return (
-    <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${theme.border}` }}>
+    <div className="rounded-lg overflow-x-auto no-sb" style={{ border: `1px solid ${theme.border}` }}>
+      <div style={{ minWidth: days.length > 1 ? 620 : 320 }}>
       {/* day headers */}
       <div className="grid" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)`, borderBottom: `1px solid ${theme.border}` }}>
         <div />
@@ -151,8 +202,8 @@ export default function CalendarGrid({ days, filterFn, handlers, onDropTask, onC
             ))}
           </div>
           {days.map((d, dayIndex) => (
-            <div key={d} data-daycol={dayIndex} className="relative" style={{ height: (END_HOUR - START_HOUR) * HOUR_H, borderLeft: `1px solid ${theme.border}`, cursor: onCreateAt ? 'crosshair' : 'default' }}
-              onMouseDown={(e) => startCreate(e, dayIndex)}
+            <div key={d} data-daycol={dayIndex} className="relative" style={{ height: (END_HOUR - START_HOUR) * HOUR_H, borderLeft: `1px solid ${theme.border}`, cursor: onCreateAt ? 'crosshair' : 'default', touchAction: (createState && createState.dayIndex === dayIndex) ? 'none' : 'pan-x pan-y' }}
+              onPointerDown={(e) => startCreate(e, dayIndex)}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => { const id = e.dataTransfer.getData('text/task'); if (id && onDropTask) { const rect = e.currentTarget.getBoundingClientRect(); onDropTask(id, d, minsToTime(minutesFromTop(e.clientY - rect.top))); } }}>
               {Array.from({ length: END_HOUR - START_HOUR }, (_, h) => (
@@ -169,19 +220,20 @@ export default function CalendarGrid({ days, filterFn, handlers, onDropTask, onC
                 const height = Math.max(20, ((t.duration || 30) / 60) * HOUR_H);
                 return (
                   <div key={t.id}
-                    onMouseDown={(e) => { e.stopPropagation(); if (e.target.dataset.resize) return; setDragState({ taskId: t.id, mode: 'move', dayIndex }); }}
+                    onPointerDown={(e) => { e.stopPropagation(); if (e.target.dataset.resize) return; setDragState({ taskId: t.id, mode: 'move', dayIndex }); }}
                     onClick={(e) => { e.stopPropagation(); if (!dragState) handlers.onOpen(t); }}
                     className="absolute left-0.5 right-0.5 rounded-md px-1.5 py-0.5 overflow-hidden cursor-grab"
-                    style={{ top, height, backgroundColor: `${theme.accent}22`, borderLeft: `3px solid ${theme.accent}`, zIndex: 2 }}>
+                    style={{ top, height, backgroundColor: `${theme.accent}22`, borderLeft: `3px solid ${theme.accent}`, zIndex: 2, touchAction: 'none' }}>
                     <div className="text-xs font-medium truncate" style={{ color: theme.text }}>{t.content}</div>
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 6, cursor: 'ns-resize' }} data-resize="true"
-                      onMouseDown={(e) => { e.stopPropagation(); setDragState({ taskId: t.id, mode: 'resize', dayIndex }); }} />
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 6, cursor: 'ns-resize', touchAction: 'none' }} data-resize="true"
+                      onPointerDown={(e) => { e.stopPropagation(); setDragState({ taskId: t.id, mode: 'resize', dayIndex }); }} />
                   </div>
                 );
               })}
             </div>
           ))}
         </div>
+      </div>
       </div>
     </div>
   );

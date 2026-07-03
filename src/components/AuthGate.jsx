@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import Splash, { splashColors, LogoMark } from '../Splash';
 
 function bindStorage(userId) {
   window.storage = {
@@ -32,7 +33,7 @@ export default function AuthGate({ children }) {
   }, []);
 
   if (session === undefined) {
-    return <Centered>Loading…</Centered>;
+    return <Splash />;
   }
   if (!session) {
     return <AuthForm />;
@@ -40,14 +41,6 @@ export default function AuthGate({ children }) {
 
   bindStorage(session.user.id);
   return children(session.user);
-}
-
-function Centered({ children }) {
-  return (
-    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAF8F5', color: '#9C9589', fontFamily: 'Inter, sans-serif' }}>
-      {children}
-    </div>
-  );
 }
 
 function AuthForm() {
@@ -69,28 +62,38 @@ function AuthForm() {
     if (mode === 'signup') setNotice('Check your email to confirm your account, then sign in.');
   }
 
-  const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #E4DFD6', outline: 'none', fontSize: 14, marginBottom: 12 };
+  const c = splashColors();
+  const dark = c.bg === '#141210';
+  const card = dark ? '#1C1A17' : '#FFFFFF';
+  const inputBg = dark ? '#232019' : '#FFFFFF';
+  const inputBorder = dark ? '#302C27' : '#E4DFD6';
+  const inputStyle = { width: '100%', padding: '11px 12px', borderRadius: 8, border: `1px solid ${inputBorder}`, background: inputBg, color: c.fg, outline: 'none', fontSize: 14, marginBottom: 12, boxSizing: 'border-box' };
 
   return (
-    <Centered>
-      <form onSubmit={submit} style={{ width: 320, background: '#fff', padding: 32, borderRadius: 14, boxShadow: '0 8px 30px rgba(0,0,0,.08)' }}>
-        <h1 style={{ fontFamily: 'Fraunces, serif', fontSize: 24, margin: '0 0 4px', color: '#2B2620' }}>Punctual</h1>
-        <p style={{ fontSize: 13, color: '#9C9589', margin: '0 0 20px' }}>{mode === 'signin' ? 'Sign in to your tasks' : 'Create an account'}</p>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: c.bg, fontFamily: 'Inter, -apple-system, sans-serif' }}>
+      <form onSubmit={submit} style={{ width: '100%', maxWidth: 340, background: card, padding: 32, borderRadius: 16, boxShadow: dark ? '0 12px 40px rgba(0,0,0,.5)' : '0 8px 30px rgba(0,0,0,.08)', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <LogoMark size={40} />
+          <div>
+            <h1 style={{ fontFamily: 'Fraunces, serif', fontSize: 22, margin: 0, color: c.fg }}>Punctual</h1>
+            <p style={{ fontSize: 13, color: c.sub, margin: '2px 0 0' }}>{mode === 'signin' ? 'Sign in to your tasks' : 'Create an account'}</p>
+          </div>
+        </div>
 
-        <input type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
-        <input type="password" required minLength={6} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} />
+        <input type="email" autoComplete="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+        <input type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} required minLength={6} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} />
 
         {error && <p style={{ color: '#D6492F', fontSize: 13, marginBottom: 12 }}>{error}</p>}
         {notice && <p style={{ color: '#3F8F6F', fontSize: 13, marginBottom: 12 }}>{notice}</p>}
 
-        <button type="submit" disabled={busy} style={{ width: '100%', padding: '11px 0', borderRadius: 8, border: 'none', background: '#D6492F', color: '#fff', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+        <button type="submit" disabled={busy} style={{ width: '100%', padding: '12px 0', borderRadius: 8, border: 'none', background: '#D6492F', color: '#fff', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
           {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Sign up'}
         </button>
 
-        <button type="button" onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); setNotice(''); }} style={{ width: '100%', marginTop: 12, background: 'none', border: 'none', color: '#9C9589', fontSize: 13, cursor: 'pointer' }}>
+        <button type="button" onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); setNotice(''); }} style={{ width: '100%', marginTop: 12, background: 'none', border: 'none', color: c.sub, fontSize: 13, cursor: 'pointer' }}>
           {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
         </button>
       </form>
-    </Centered>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Plus, LayoutList, Calendar as CalIcon, CheckCircle } from 'lucide-react';
 import { ThemeProvider, buildTheme, useTheme } from './theme';
 import { StoreProvider, useStore } from './state/store';
@@ -8,7 +8,9 @@ import { todayStr, isOverdue } from './lib/dates';
 import { reminderFireTime, reminderLabel } from './lib/constants';
 import { sortTasks, SORT_OPTIONS } from './lib/sort';
 import { defaultShortcutMap, eventToCombo } from './lib/shortcuts';
+import useBackButton from './lib/useBackButton';
 import Sidebar from './components/Sidebar';
+import MobileNav from './components/MobileNav';
 import TaskSheet from './components/TaskSheet';
 import TaskDetail from './components/TaskDetail';
 import { TaskList } from './components/TaskItems';
@@ -20,9 +22,9 @@ import CommandMenu from './components/CommandMenu';
 import SettingsModal from './components/SettingsModal';
 import FocusTimer from './components/FocusTimer';
 import { ProgressRing } from './components/shared';
+import Splash from './Splash';
 
 const PAGE_STYLE = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
 * { box-sizing: border-box; }
 body { margin: 0; }
 button { cursor: pointer; }
@@ -66,7 +68,7 @@ function Particles({ x, y }) {
 export default function App({ user }) {
   const [initial, setInitial] = useState(null);
   useEffect(() => { loadState().then(setInitial); }, []);
-  if (!initial) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAF8F5', color: '#9C9589', fontFamily: 'Inter, sans-serif' }}>Loading…</div>;
+  if (!initial) return <Splash />;
   return (
     <StoreProvider initial={initial}>
       <DeleteConfirmProvider>
@@ -87,7 +89,12 @@ function ThemedShell({ user }) {
   }, []);
   const isDark = mode === 'system' ? systemDark : mode === 'dark';
   const theme = useMemo(() => buildTheme(mode, isDark, state.settings.accent), [mode, isDark, state.settings.accent]);
-  useEffect(() => { document.body.style.background = theme.bg; }, [theme]);
+  useEffect(() => {
+    document.body.style.background = theme.bg;
+    // Mirror the resolved theme so the pre-React splash (index.html) can match
+    // the user's explicit choice on the next cold launch, not just the OS one.
+    try { localStorage.setItem('punctual-splash-theme', isDark ? 'dark' : 'light'); } catch { /* */ }
+  }, [theme, isDark]);
   return (
     <ThemeProvider theme={theme}>
       <style>{PAGE_STYLE}</style>
@@ -96,10 +103,19 @@ function ThemedShell({ user }) {
   );
 }
 
+// The "main" pages a back press should be able to land on. Anything else
+// (search, productivity, completed, filters-labels overview) is a secondary
+// view that back steps out of, returning to the last main page visited.
+function isMainView(v) {
+  return v === 'today' || v === 'upcoming' || v === 'calendar'
+    || v.startsWith('project:') || v.startsWith('label:') || v.startsWith('filter:');
+}
+
 function AppShell({ isDark, user }) {
   const theme = useTheme();
   const { state, dispatch } = useStore();
   const [collapsed, setCollapsed] = useState(() => window.innerWidth < 900);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [view, setView] = useState(state.settings.startView || 'today');
   const [sheet, setSheet] = useState(null);
   const [detailId, setDetailId] = useState(null);
@@ -108,6 +124,20 @@ function AppShell({ isDark, user }) {
   const [focusTask, setFocusTask] = useState(null);
   const [celebrations, setCelebrations] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Remember the last main page so backing out of a secondary view / overlay
+  // returns there rather than to some arbitrary spot.
+  const lastMainViewRef = useRef(isMainView(view) ? view : 'today');
+  useEffect(() => { if (isMainView(view)) lastMainViewRef.current = view; }, [view]);
+  useBackButton([
+    { active: !!sheet, close: () => setSheet(null) },
+    { active: showCommand, close: () => setShowCommand(false) },
+    { active: !!focusTask, close: () => setFocusTask(null) },
+    { active: showSettings, close: () => setShowSettings(false) },
+    { active: !!detailId, close: () => setDetailId(null) },
+    { active: mobileNavOpen, close: () => setMobileNavOpen(false) },
+    { active: !isMainView(view), close: () => setView(lastMainViewRef.current) },
+  ]);
 
   const counts = useMemo(() => {
     const byProject = {}, byLabel = {};
@@ -214,14 +244,18 @@ function AppShell({ isDark, user }) {
   return (
     <div className="flex h-screen w-full relative" style={{ backgroundColor: theme.bg, color: theme.text, fontFamily: 'Inter, sans-serif' }}>
       <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} activeView={view} setView={setView} counts={counts}
-        onOpenSettings={() => setShowSettings(true)} onQuickAdd={() => openQuickAdd()} />
+        onOpenSettings={() => setShowSettings(true)} onQuickAdd={() => openQuickAdd()}
+        mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
 
       <MainContent view={view} setView={setView} handlers={handlers} counts={counts} searchQuery={searchQuery} setSearchQuery={setSearchQuery} weekStart={state.settings.weekStart} />
 
       {!sheet && (
-        <button onClick={() => openQuickAdd()} className="fab fixed flex items-center justify-center rounded-full shadow-lg" style={{ right: 24, bottom: 24, width: 54, height: 54, backgroundColor: theme.accent, color: theme.accentText, boxShadow: `0 6px 20px ${theme.accent}66` }} aria-label="Add task">
+        <button onClick={() => openQuickAdd()} className="fab fixed hidden md:flex items-center justify-center rounded-full shadow-lg" style={{ right: 24, bottom: 24, width: 54, height: 54, backgroundColor: theme.accent, color: theme.accentText, boxShadow: `0 6px 20px ${theme.accent}66` }} aria-label="Add task">
           <Plus size={26} />
         </button>)}
+
+      {!mobileNavOpen && <MobileNav view={view} setView={setView} onQuickAdd={() => openQuickAdd()} onBrowse={() => setMobileNavOpen(true)} />}
+
 
       {sheet && <TaskSheet key={sheet.seed?.id || sheet.mode + (sheet.parentId || '')} {...sheet} onSubmit={onSheetSubmit} onClose={() => setSheet(null)} />}
       {detailId && <TaskDetail taskId={detailId} onClose={() => setDetailId(null)} onToggle={toggle} onOpen={openDetail} onAddSubtask={addSubtask} onFocus={setFocusTask} />}
@@ -293,15 +327,15 @@ function MainContent({ view, setView, handlers, counts, searchQuery, setSearchQu
   const isFlatListView = view === 'today' || view.startsWith('label:');
 
   return (
-    <main className="flex-1 overflow-y-auto page-fade" key={view}>
-      <header className="flex items-center justify-between px-8 pt-8 pb-2 sticky top-0 z-10" style={{ backgroundColor: theme.bg }}>
-        <div>
-          <h2 style={{ fontFamily: 'Fraunces, serif', fontWeight: 600, fontSize: 27, color: theme.text }}>{title}</h2>
-          {subtitle && <p className="text-sm mt-0.5" style={{ color: theme.textLight }}>{subtitle}</p>}
+    <main className="flex-1 overflow-y-auto page-fade w-full min-w-0" key={view}>
+      <header className="flex items-center justify-between flex-wrap gap-3 px-4 sm:px-8 pt-6 sm:pt-8 pb-2 sticky top-0 z-10" style={{ backgroundColor: theme.bg }}>
+        <div className="min-w-0">
+          <h2 className="truncate" style={{ fontFamily: 'Fraunces, serif', fontWeight: 600, fontSize: 27, color: theme.text }}>{title}</h2>
+          {subtitle && <p className="text-sm mt-0.5 truncate" style={{ color: theme.textLight }}>{subtitle}</p>}
         </div>
         {headerRight}
       </header>
-      <div className="px-8 pb-28" style={{ maxWidth: wide ? '100%' : 760 }}>
+      <div className="px-4 sm:px-8 pb-32 md:pb-28" style={{ maxWidth: wide ? '100%' : 760 }}>
         {isFlatListView && (
           <button onClick={() => setShowCompleted((s) => !s)} className="text-xs mb-3 flex items-center gap-1" style={{ color: theme.textLight }}>
             <CheckCircle size={13} />{showCompleted ? 'Hide completed' : 'Show completed'}

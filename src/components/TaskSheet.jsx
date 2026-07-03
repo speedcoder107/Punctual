@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import {
   Calendar, Flag, Tag, ChevronDown, ChevronRight, Check, X, Inbox,
   Bell, MapPin, Paperclip, Target, AlignLeft, Send, MoreHorizontal, Clock, Timer, Plus,
@@ -50,6 +50,7 @@ export default function TaskSheet({ mode = 'new', parentId, lockedProjectId, ini
   const [attachment, setAttachment] = useState(seed?.attachment ?? '');
 
   const taRef = useRef(null);
+  const nameWrapRef = useRef(null);
   const { segments, meta } = useMemo(() => parseQuickAdd(text, projects, ignored, knownLabels, customSyntaxes), [text, projects, ignored, knownLabels, customSyntaxes]);
 
   // `initialDate` is only a *fallback default* (e.g. "Today" view / Upcoming day "+").
@@ -69,7 +70,18 @@ export default function TaskSheet({ mode = 'new', parentId, lockedProjectId, ini
   }, [mReminders, meta.reminders]);
 
   useEffect(() => { requestAnimationFrame(() => setEntered(true)); setTimeout(() => taRef.current?.focus(), 60); }, []);
-  useEffect(() => { const ta = taRef.current; if (!ta) return; ta.style.height = 'auto'; ta.style.height = `${ta.scrollHeight}px`; }, [text]);
+  // Keep the textarea and its highlighted-text mirror div pixel-identical: both are
+  // `absolute inset-0` inside nameWrapRef, so they can never diverge in width/wrapping —
+  // the wrapper's own height (which they don't otherwise contribute to, being absolute)
+  // is driven from the textarea's measured scrollHeight. useLayoutEffect avoids a
+  // one-frame flash at height 0 before the first measurement.
+  useLayoutEffect(() => {
+    const ta = taRef.current; if (!ta) return;
+    ta.style.height = 'auto';
+    const h = ta.scrollHeight;
+    ta.style.height = `${h}px`;
+    if (nameWrapRef.current) nameWrapRef.current.style.height = `${h}px`;
+  }, [text]);
 
   const ac = useMemo(() => {
     const before = text.slice(0, caret); const mm = before.match(/([#@])([\p{L}\p{N}_-]*)$/u);
@@ -150,22 +162,34 @@ export default function TaskSheet({ mode = 'new', parentId, lockedProjectId, ini
   const customRecurrenceActive = effRec && !(effRec.interval === 1 && ['day', 'week', 'month', 'weekday'].includes(effRec.unit));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center" style={{ paddingTop: '12vh' }} onMouseDown={requestClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[4vh] sm:pt-[12vh]" onMouseDown={requestClose}>
       <div className="absolute inset-0" style={{ opacity: entered ? 1 : 0, transition: 'opacity .2s ease', backgroundColor: theme.overlay }} />
-      <div className="relative mx-auto" style={{ maxWidth: 620, width: '92%', maxHeight: '76vh', overflow: 'visible', transform: entered ? 'scale(1) translateY(0)' : 'scale(.96) translateY(-16px)', opacity: entered ? 1 : 0, transition: 'transform .24s cubic-bezier(.32,.72,0,1), opacity .2s ease' }} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="rounded-2xl" style={{ backgroundColor: theme.bgElevated, border: `1px solid ${theme.border}`, boxShadow: theme.glowShadow }}>
+      <div className="relative mx-auto w-full sm:w-[92%] max-w-[620px]" style={{ maxHeight: '92vh', overflow: 'visible', transform: entered ? 'scale(1) translateY(0)' : 'scale(.96) translateY(-16px)', opacity: entered ? 1 : 0, transition: 'transform .24s cubic-bezier(.32,.72,0,1), opacity .2s ease' }} onMouseDown={(e) => e.stopPropagation()}>
+        <div className="rounded-2xl flex flex-col" style={{ backgroundColor: theme.bgElevated, border: `1px solid ${theme.border}`, boxShadow: theme.glowShadow, maxHeight: '92vh' }}>
+          <div className="overflow-y-auto flex-1">
           {/* name */}
-          <div className="px-5 pt-5 relative">
-            <div aria-hidden className="absolute pointer-events-none" style={{ ...sheetText, left: 20, right: 20, top: 20, color: theme.text }}>
-              {segments.map((s, i) => s.type === 'plain'
-                ? <span key={i}>{s.text}</span>
-                : <span key={i} style={{ backgroundColor: `${HL[s.type]}22`, color: HL[s.type], borderRadius: 4, boxShadow: `inset 0 -1px 0 ${HL[s.type]}66`, padding: '0 1px' }}>{s.text}</span>)}
-              {!text && <span style={{ color: theme.textLighter }}>{isSub ? 'Sub-task name' : 'Task name — try "Report tomorrow at 3pm for 45m p1 #Work @urgent"'}</span>}
+          <div className="px-4 sm:px-5 pt-5 relative">
+            <div className="relative" ref={nameWrapRef}>
+              <div aria-hidden className="absolute inset-0 pointer-events-none" style={{ ...sheetText, color: theme.text }}>
+                {segments.map((s, i) => s.type === 'plain'
+                  ? <span key={i}>{s.text}</span>
+                  : <span key={i} style={{ backgroundColor: `${HL[s.type]}22`, color: HL[s.type], borderRadius: 4, boxShadow: `inset 0 -1px 0 ${HL[s.type]}66`, padding: '0 1px' }}>{s.text}</span>)}
+                {!text && (
+                  <span style={{ color: theme.textLighter }}>
+                    {isSub ? 'Sub-task name' : (
+                      <>
+                        <span className="hidden sm:inline">Task name — try "Report tomorrow at 3pm for 45m p1 #Work @urgent"</span>
+                        <span className="sm:hidden">Task name</span>
+                      </>
+                    )}
+                  </span>
+                )}
+              </div>
+              <textarea ref={taRef} rows={1} value={text} spellCheck={false}
+                onChange={(e) => { setText(e.target.value); requestAnimationFrame(syncCaret); }}
+                onKeyDown={onKeyDown} onKeyUp={syncCaret} onClick={syncCaret} onSelect={syncCaret}
+                className="absolute inset-0 w-full resize-none outline-none bg-transparent" style={{ ...sheetText, color: 'transparent', caretColor: theme.accent }} />
             </div>
-            <textarea ref={taRef} rows={1} value={text} spellCheck={false}
-              onChange={(e) => { setText(e.target.value); requestAnimationFrame(syncCaret); }}
-              onKeyDown={onKeyDown} onKeyUp={syncCaret} onClick={syncCaret} onSelect={syncCaret}
-              className="w-full resize-none outline-none bg-transparent relative" style={{ ...sheetText, color: 'transparent', caretColor: theme.accent }} />
             {ac && (
               <div className="absolute z-40 mt-1 rounded-lg border shadow-lg py-1" style={{ borderColor: theme.border, backgroundColor: theme.bgElevated, minWidth: 180 }}>
                 {ac.items.map((it, i) => (
@@ -176,19 +200,19 @@ export default function TaskSheet({ mode = 'new', parentId, lockedProjectId, ini
           </div>
 
           {showDesc ? (
-            <div className="px-5 pt-2">
-              <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Description" rows={1}
+            <div className="px-4 sm:px-5 pt-2">
+              <textarea autoFocus value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Description" rows={1}
                 className="w-full resize-none outline-none text-sm bg-transparent" style={{ color: theme.textMuted, minHeight: 22 }} />
             </div>
           ) : (
-            <button onClick={() => setShowDesc(true)} className="flex items-center gap-1.5 text-sm px-5 pt-2 pb-0.5" style={{ color: theme.textLight }}>
+            <button onClick={() => setShowDesc(true)} className="flex items-center gap-1.5 text-sm px-4 sm:px-5 pt-2 pb-0.5" style={{ color: theme.textLight }}>
               <AlignLeft size={13} /> Description
             </button>
           )}
 
           {/* chips */}
           {(deadline || location || attachment || effReminders.length > 0) && (
-            <div className="flex flex-wrap gap-1.5 px-5 pt-2">
+            <div className="flex flex-wrap gap-1.5 px-4 sm:px-5 pt-2">
               {deadline && <Chip color="#D6492F" icon={<Target size={11} />} onX={() => setDeadline(null)}>Deadline {formatDueLabel(deadline)}</Chip>}
               {effReminders.map((r) => <Chip key={r.id} color="#D98E2B" icon={<Bell size={11} />} onX={() => removeReminder(r)}>{reminderLabel(r)}</Chip>)}
               {location && <Chip color="#3E7CB8" icon={<MapPin size={11} />} onX={() => setLocation('')}>{location}</Chip>}
@@ -196,7 +220,7 @@ export default function TaskSheet({ mode = 'new', parentId, lockedProjectId, ini
             </div>)}
 
           {/* pills */}
-          <div className="relative px-5 pt-3">
+          <div className="relative px-4 sm:px-5 pt-3">
             <div className="flex items-center gap-2 overflow-x-auto pb-1 no-sb">
               <PillWrap>
                 <PillBtn active={!!effDate} color={dueColor(effDate, theme)} icon={<Calendar size={15} />} onClick={() => setPanel(panel === 'date' ? null : 'date')}
@@ -317,9 +341,10 @@ export default function TaskSheet({ mode = 'new', parentId, lockedProjectId, ini
               </PillWrap>
             </div>
           </div>
+          </div>
 
           {/* bottom bar */}
-          <div className="flex items-center justify-between px-5 py-3 mt-2 border-t" style={{ borderColor: theme.border }}>
+          <div className="flex items-center justify-between px-4 sm:px-5 py-3 mt-2 border-t flex-shrink-0" style={{ borderColor: theme.border }}>
             <div className="relative">
               <button onClick={() => !isSub && setPanel(panel === 'project' ? null : 'project')} className="flex items-center gap-1.5 text-sm rounded-lg px-2 py-1.5" style={{ color: theme.text, backgroundColor: panel === 'project' ? theme.hover : 'transparent', cursor: isSub ? 'default' : 'pointer' }}>
                 {isSub ? <><ChevronRight size={15} style={{ color: theme.textLight }} />Sub-task</> : <>{effProject === 'inbox' ? <Inbox size={15} style={{ color: theme.textMuted }} /> : <span className="rounded-full" style={{ width: 9, height: 9, backgroundColor: currentProject?.color }} />}{currentProject?.name || 'Inbox'}<ChevronDown size={14} style={{ color: theme.textLight }} /></>}
