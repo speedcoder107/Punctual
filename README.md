@@ -12,6 +12,7 @@ A fast, keyboard-friendly task manager in the spirit of Todoist — projects, la
 - Light/dark themes with selectable accent colors
 - Productivity/karma tracking and a built-in focus timer
 - Command menu for quick keyboard navigation
+- Account login with tasks synced across every device you sign in on
 
 ## Tech stack
 
@@ -19,7 +20,7 @@ A fast, keyboard-friendly task manager in the spirit of Todoist — projects, la
 - Tailwind CSS (via CDN in `public/index.html`)
 - [lucide-react](https://lucide.dev/) icons
 - [@dnd-kit](https://dndkit.com/) for drag-and-drop
-- Local-first storage via a small async wrapper around `localStorage`
+- [Supabase](https://supabase.com/) for auth and data sync
 
 ## Getting started
 
@@ -29,6 +30,17 @@ npm start
 ```
 
 The app runs at [http://localhost:3000](http://localhost:3000).
+
+### Environment variables
+
+Create a `.env.local` with your Supabase project's URL and anon key:
+
+```
+REACT_APP_SUPABASE_URL=https://your-project.supabase.co
+REACT_APP_SUPABASE_ANON_KEY=your-anon-key
+```
+
+Then run the SQL in `supabase-schema.sql` once, in your Supabase project's SQL editor, to create the `user_storage` table and its row-level security policies.
 
 ### Available scripts
 
@@ -40,13 +52,13 @@ The app runs at [http://localhost:3000](http://localhost:3000).
 
 ```
 src/
-  components/   UI components (sidebar, task sheet, project views, settings, focus timer, etc.)
-  lib/          Dates, filters, natural-language parsing, karma, constants
+  components/   UI components (sidebar, task sheet, project views, settings, focus timer, auth, etc.)
+  lib/          Dates, filters, natural-language parsing, karma, constants, Supabase client
   state/        App state (reducer + actions)
-  storage.js    localStorage persistence with schema migration
+  storage.js    Persistence layer with schema migration
   theme.js      Theme context (light/dark + accent presets)
 ```
 
 ## Data
 
-All data is stored locally in the browser via `localStorage` — no backend or account required.
+Task data is stored per-account in Supabase, scoped by row-level security so each user can only ever read or write their own data.
