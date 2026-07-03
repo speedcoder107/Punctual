@@ -2,32 +2,13 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import AuthGate from './components/AuthGate';
 import reportWebVitals from './reportWebVitals';
-
-// Initialize localStorage shim for the app
-window.storage = {
-  get: async (key) => {
-    try {
-      const value = localStorage.getItem(key);
-      return value ? { value } : { value: null };
-    } catch (e) {
-      return { value: null };
-    }
-  },
-  set: async (key, value) => {
-    try {
-      localStorage.setItem(key, value);
-      return { ok: true };
-    } catch (e) {
-      return { ok: false };
-    }
-  },
-};
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+    <AuthGate>{(user) => <App key={user.id} user={user} />}</AuthGate>
   </React.StrictMode>
 );
 

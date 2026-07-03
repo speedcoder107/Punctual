@@ -1,14 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { X, Download, Upload, Trash, Palette, SlidersHorizontal, Database, HelpCircle, Zap, Plus, Keyboard, RotateCcw, AlertTriangle } from 'lucide-react';
+import { X, Download, Upload, Trash, Palette, SlidersHorizontal, Database, HelpCircle, Zap, Plus, Keyboard, RotateCcw, AlertTriangle, User, LogOut } from 'lucide-react';
 import { useTheme, ACCENT_PRESETS } from '../theme';
 import { useStore } from '../state/store';
 import { exportState } from '../storage';
+import { supabase } from '../lib/supabaseClient';
 import { uid } from '../lib/dates';
 import { PRIORITY_META } from '../lib/constants';
 import { SHORTCUT_ACTIONS, defaultShortcutMap, eventToCombo, comboLabel } from '../lib/shortcuts';
 import { Modal } from './shared';
 
-export default function SettingsModal({ onClose }) {
+export default function SettingsModal({ onClose, user }) {
   const theme = useTheme();
   const { state, dispatch } = useStore();
   const s = state.settings;
@@ -22,6 +23,7 @@ export default function SettingsModal({ onClose }) {
     { id: 'quickadd', label: 'Quick Add', icon: <Zap size={15} /> },
     { id: 'shortcuts', label: 'Shortcuts', icon: <Keyboard size={15} /> },
     { id: 'data', label: 'Data', icon: <Database size={15} /> },
+    { id: 'account', label: 'Account', icon: <User size={15} /> },
     { id: 'help', label: 'Help', icon: <HelpCircle size={15} /> },
   ];
 
@@ -144,6 +146,17 @@ export default function SettingsModal({ onClose }) {
           )}
 
           {tab === 'shortcuts' && <ShortcutsSettings s={s} set={set} theme={theme} state={state} dispatch={dispatch} />}
+
+          {tab === 'account' && (
+            <div className="space-y-3">
+              <div className="p-4 rounded-lg" style={{ backgroundColor: theme.surface, borderLeft: `4px solid ${theme.accent}` }}>
+                <p className="text-sm" style={{ color: theme.text }}>Signed in as</p>
+                <p className="text-sm font-medium mt-0.5" style={{ color: theme.text }}>{user?.email}</p>
+              </div>
+              <p className="text-xs" style={{ color: theme.textLighter }}>Your tasks are synced to your account and available on any device you sign in on.</p>
+              <button onClick={() => supabase.auth.signOut()} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium" style={{ backgroundColor: theme.accentLight, color: theme.accent }}><LogOut size={16} /> Sign out</button>
+            </div>
+          )}
 
           {tab === 'help' && (
             <div className="space-y-4 text-sm" style={{ color: theme.textMuted }}>

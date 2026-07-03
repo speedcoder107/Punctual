@@ -63,20 +63,20 @@ function Particles({ x, y }) {
   return <>{parts.map((p) => <div key={p.id} className="particle" style={{ left: x, top: y, width: 7, height: 7, borderRadius: '50%', background: colors[p.id % colors.length], '--tx': `${Math.cos(p.angle) * p.dist}px`, '--ty': `${Math.sin(p.angle) * p.dist - 20}px` }} />)}</>;
 }
 
-export default function App() {
+export default function App({ user }) {
   const [initial, setInitial] = useState(null);
   useEffect(() => { loadState().then(setInitial); }, []);
   if (!initial) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAF8F5', color: '#9C9589', fontFamily: 'Inter, sans-serif' }}>Loading…</div>;
   return (
     <StoreProvider initial={initial}>
       <DeleteConfirmProvider>
-        <ThemedShell />
+        <ThemedShell user={user} />
       </DeleteConfirmProvider>
     </StoreProvider>
   );
 }
 
-function ThemedShell() {
+function ThemedShell({ user }) {
   const { state } = useStore();
   const mode = state.settings.themeMode;
   const [systemDark, setSystemDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -91,12 +91,12 @@ function ThemedShell() {
   return (
     <ThemeProvider theme={theme}>
       <style>{PAGE_STYLE}</style>
-      <AppShell isDark={isDark} />
+      <AppShell isDark={isDark} user={user} />
     </ThemeProvider>
   );
 }
 
-function AppShell({ isDark }) {
+function AppShell({ isDark, user }) {
   const theme = useTheme();
   const { state, dispatch } = useStore();
   const [collapsed, setCollapsed] = useState(() => window.innerWidth < 900);
@@ -225,7 +225,7 @@ function AppShell({ isDark }) {
 
       {sheet && <TaskSheet key={sheet.seed?.id || sheet.mode + (sheet.parentId || '')} {...sheet} onSubmit={onSheetSubmit} onClose={() => setSheet(null)} />}
       {detailId && <TaskDetail taskId={detailId} onClose={() => setDetailId(null)} onToggle={toggle} onOpen={openDetail} onAddSubtask={addSubtask} onFocus={setFocusTask} />}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} user={user} />}
       {showCommand && <CommandMenu onClose={() => setShowCommand(false)} setView={setView} onQuickAdd={() => openQuickAdd()} onOpenSettings={() => setShowSettings(true)} onToggleTheme={themeToggle} />}
       {focusTask && <FocusTimer task={focusTask} onClose={() => setFocusTask(null)} />}
 
